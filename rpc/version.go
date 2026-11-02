@@ -14,15 +14,22 @@ import (
 // mond and monwallet.
 // The monetarium forks report their own version-map keys (verified against
 // live daemons): monetarium-node returns "monetarium"/"monetariumjsonrpcapi"
-// (binary 2.1.x, mond-2.1 era; JSON-RPC API 8.3), monwallet returns
+// (binary 1.3.x since v1.3.13, 2.1.x before; JSON-RPC API 8.3), monwallet returns
 // "monw"/"monwjsonrpcapi" (binary 1.3.x fork versioning; JSON-RPC API 10.0 —
 // one major behind the monwallet 2.x API 11 upstream vspm expects, so any
 // API-11-only method use surfaces at runtime, not here).
 var minimumVersions = map[string]semver{
-	"monetarium":           {Major: 2, Minor: 1},
+	"monetarium":           {Major: 1, Minor: 3},
 	"monetariumjsonrpcapi": {Major: 8, Minor: 3},
 	"monw":                 {Major: 1, Minor: 3},
 	"monwjsonrpcapi":       {Major: 10, Minor: 0},
+}
+
+// legacyMinimumVersions accepts binaries released before a version
+// renumbering. monetarium-node reported 2.1.x until v1.3.13 moved it to the
+// 1.3.x release line; its JSON-RPC API did not change.
+var legacyMinimumVersions = map[string]semver{
+	"monetarium": {Major: 2, Minor: 1},
 }
 
 // checkVersion returns an error if the provided key in verMap does not have
@@ -36,6 +43,9 @@ func checkVersion(verMap map[string]mondtypes.VersionResult, key string) error {
 	}
 
 	minimumV := minimumVersions[key]
+	if legacyV, ok := legacyMinimumVersions[key]; ok && semverCompatible(legacyV, actualV) {
+		return nil
+	}
 	if !semverCompatible(minimumV, actualV) {
 		return fmt.Errorf("incompatible %q version, expected %s got %s",
 			key, minimumV, actualV)
